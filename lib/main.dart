@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:pandora_app/screens/home_page.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:pandora_app/screens/home_page.dart';
+import 'package:pandora_app/screens/login_page.dart';
+import 'package:pandora_app/services/api_service.dart';
 
 import 'package:provider/provider.dart';
 import 'package:pandora_app/services/auth_services.dart';
@@ -8,13 +11,27 @@ import 'package:pandora_app/screens/splash_creen.dart';
 
 // Convertimos main() en una función asíncrona para poder usar 'await'
 Future<void> main() async {
-  // 2. Carga las variables de entorno antes de iniciar la app
+  // Aseguramos que los widgets estén inicializados antes de dotenv
+  WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: ".env");
 
-  runApp( ChangeNotifierProvider(
-    create: (context) => AuthService(),
-    child: const PandoraApp(),
-  ));
+  // Creamos la instancia de AuthService
+  final authService = AuthService();
+
+  // Inyectamos la dependencia de authService en ApiService
+  ApiService.initialize(authService);
+
+  // Opcional: Iniciar la precarga de la sesión aquí
+  await authService.tryAutoLogin();
+
+  await initializeDateFormatting('es_ES', null); // <-- AÑADE ESTA LÍNEA
+
+  runApp(
+    ChangeNotifierProvider(
+      create: (context) => authService, // Usamos la instancia que creamos
+      child: const PandoraApp(),
+    ),
+  );
 }
 
 class PandoraApp extends StatelessWidget {
@@ -56,7 +73,29 @@ class PandoraApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const SplashScreen(),
+      home: Consumer<AuthService>(
+        builder: (context, authService, _) {
+          // La SplashScreen podría seguir siendo un intermedio si lo necesitas
+          // para un loader inicial, pero puedes simplificarlo.
+
+          // La lógica ideal:
+          // Si el estado de autenticación no se ha verificado, muestra la SplashScreen.
+          if (!authService.isAuthenticated && authService.token == null) {
+            // Este caso es para la primera carga, si no hay token guardado.
+            // Para la primera vez que entras, puedes mostrar algo mientras se verifica.
+            // Aquí puedes decidir si quieres que se muestre la HomePage o un loader.
+            return const HomePage(); // O la pantalla de inicio para invitados.
+          } else {
+            // La lógica para redirección si la sesión expira
+            if (authService.isAuthenticated) {
+              return const HomePage();
+            } else {
+              // Esto es solo si el token expiró y se hizo logout.
+              return const LoginPage();
+            }
+          }
+        },
+      ),
     );
   }
 }

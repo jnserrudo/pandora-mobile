@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/foundation.dart'; //hay que importar esto para poder usar la vble kdebugmode
+import 'package:image_picker/image_picker.dart';
 
 import 'package:pandora_app/services/auth_services.dart';
 
@@ -33,6 +34,7 @@ class ApiService {
   static final String _baseUrl = kDebugMode
       ? dotenv.env['API_BASE_URL_DEV']!
       : dotenv.env['API_BASE_URL_PROD']!;
+  //static final String _baseUrl=dotenv.env['API_BASE_URL_PROD']!;
 
   // --- ASEGÚRATE DE QUE ESTAS DOS PARTES EXISTAN ---
 
@@ -225,9 +227,53 @@ class ApiService {
     return _processResponse(response);
   }
 
+  static Future<Map<String, dynamic>> getCommerceById(String id) async {
+    final response = await http.get(Uri.parse('$_baseUrl/commerces/$id'));
+    return _processResponse(response);
+  }
+
   // --- MÉTODOS PARA EVENTOS ---
   static Future<List<dynamic>> getEvents() async {
     final response = await http.get(Uri.parse('$_baseUrl/events'));
+    return _processResponse(response);
+  }
+
+  
+static Future<Map<String, dynamic>> getEventById(String eventId) async {
+  // Construye la URL final para el endpoint específico del evento
+  final url = '$_baseUrl/events/$eventId';
+
+  try {
+    // Realiza la petición GET. Como es una lectura pública, no necesita
+    // pasar por _makeAuthenticatedRequest.
+    final response = await http.get(Uri.parse(url));
+
+    // Utiliza tu procesador de respuestas centralizado para manejar
+    // el éxito, los errores y el parsing del JSON.
+    return _processResponse(response);
+
+  } catch (e) {
+    // Si la petición http.get falla (ej. sin conexión), lo capturamos
+    // y lo relanzamos como una ApiException para ser consistentes.
+    if (e is ApiException) rethrow;
+    throw ApiException(
+      message: 'Error de conexión al obtener el evento: ${e.toString()}',
+      statusCode: 503, // Service Unavailable
+    );
+  }
+}
+
+  static Future<Map<String, dynamic>> updateEvent(
+    int eventId,
+    Map<String, dynamic> data,
+  ) async {
+    final response = await _makeAuthenticatedRequest(
+      (headers) => http.put(
+        Uri.parse('$_baseUrl/events/$eventId'),
+        headers: headers,
+        body: json.encode(data),
+      ),
+    );
     return _processResponse(response);
   }
 
@@ -327,14 +373,15 @@ class ApiService {
 
   // --- MÉTODOS PARA COMERCIOS (PROTEGIDOS) ---
 
-  /// Obtiene el comercio del usuario autenticado, manejando la expiración del token.
-  static Future<Map<String, dynamic>> getMyCommerce() async {
-    final response = await _makeAuthenticatedRequest(
-      (headers) =>
-          http.get(Uri.parse('$_baseUrl/commerces/me'), headers: headers),
-    );
-    return _processResponse(response);
-  }
+  /// Obtiene LOS comercios del usuario autenticado, manejando la expiración del token.
+static Future<List<dynamic>> getMyCommerces() async { // <-- Nombre y tipo de retorno cambiados
+  final response = await _makeAuthenticatedRequest(
+    (headers) =>
+        http.get(Uri.parse('$_baseUrl/commerces/me'), headers: headers),
+  );
+  // El backend debe devolver un array de comercios, incluso si solo hay uno.
+  return _processResponse(response);
+}
 
   /// Crea un nuevo comercio.
   static Future<Map<String, dynamic>> createCommerce(
@@ -375,4 +422,33 @@ class ApiService {
     );
     return _processResponse(response);
   }
+
+
+static Future<String> uploadImage(XFile imageFile) async {
+  final url = Uri.parse('$_baseUrl/upload/image'); // La nueva ruta del backend
+  
+  // Usamos _makeAuthenticatedRequest para que el token se gestione automáticamente
+  final response = await _makeAuthenticatedRequest(
+    (headers) async {
+      final request = http.MultipartRequest('POST', url);
+      request.headers.addAll(headers);
+      
+      // Adjuntamos el archivo
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'image', // Este es el nombre del campo que espera Multer: upload.single('image')
+          imageFile.path,
+        ),
+      );
+      
+      final streamedResponse = await request.send();
+      return http.Response.fromStream(streamedResponse);
+    },
+  );
+
+  // Procesamos la respuesta
+  final responseData = _processResponse(response);
+  return responseData['imageUrl'];
+}
+
 }

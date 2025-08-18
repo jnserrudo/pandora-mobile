@@ -44,6 +44,15 @@ dependencies:
   flutter_staggered_animations: ^1.1.1
   url_launcher: ^6.3.2
 
+# AÑADE esta línea:
+  flutter_map: ^6.1.0 # O la versión más reciente
+
+  image_picker: ^1.1.2 # O la más reciente
+
+  # MANTENEMOS estas dos, son útiles y no requieren API key para el uso básico
+  geolocator: ^11.0.0      # O la versión más reciente
+  geocoding: ^3.0.0        # O la versión más reciente
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -55,5 +55,9 @@
       <string>mailto</string>
     </array>
     <!-- FIN DE LA SECCIÓN AÑADIDA -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+    <string>Esta app necesita tu ubicación para mostrar eventos cercanos y permitirte seleccionar la ubicación de tu evento.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+    <string>Esta app necesita tu ubicación para mostrar eventos cercanos y permitirte seleccionar la ubicación de tu evento.</string>
 </dict>
 </plist>

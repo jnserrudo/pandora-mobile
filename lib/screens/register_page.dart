@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-
 import 'package:pandora_app/services/api_service.dart';
+// <-- 1. IMPORTACIONES AÑADIDAS
+import 'package:pandora_app/services/auth_services.dart';
+import 'package:provider/provider.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -18,42 +20,48 @@ class _RegisterPageState extends State<RegisterPage> {
   bool _isLoading = false;
 
   Future<void> _register() async {
-    // 1. Convertimos a async
-    // Validamos que el formulario esté correcto
     if (_formKey.currentState!.validate()) {
-      setState(() => _isLoading = true); // Mostramos el indicador de carga
+      setState(() => _isLoading = true);
 
       try {
-        // 2. Llamamos al ApiService
-        final response = await ApiService.register(
+        await ApiService.register(
           name: _nameController.text,
           username: _usernameController.text,
           email: _emailController.text,
           password: _passwordController.text,
         );
 
-        // 3. Si todo sale bien, mostramos un mensaje de éxito
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(response['message'] ?? '¡Registro exitoso!'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        // --- 2. LÓGICA DE LIMPIEZA AÑADIDA ---
+        // Después de un registro exitoso, forzamos un logout para limpiar
+        // cualquier token "fantasma" que pudiera existir de una sesión anterior.
+        // Esto garantiza que el primer login del nuevo usuario sea limpio.
+        if (mounted) {
+          final authService = Provider.of<AuthService>(context, listen: false);
+          await authService.logout(); // <-- Limpia tokens antiguos
+        }
+        // ------------------------------------
 
-        // Opcional: Navegamos a la página de login después de un registro exitoso
-        Navigator.of(context).pop(); // Vuelve a la pantalla anterior (HomePage)
-      } catch (e) {
-        // 4. Si la API lanza un error, lo mostramos en un SnackBar
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Error: ${e.toString().replaceAll("Exception: ", "")}',
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('¡Registro exitoso! Ya puedes iniciar sesión.'),
+              backgroundColor: Colors.green,
             ),
-            backgroundColor: Colors.red,
-          ),
-        );
+          );
+          Navigator.of(context).pop(); // Vuelve a la pantalla anterior
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Error: ${e.toString().replaceAll("Exception: ", "")}',
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       } finally {
-        // 5. Ocultamos el indicador de carga, tanto si hubo éxito como si hubo error
         if (mounted) {
           setState(() => _isLoading = false);
         }
@@ -129,7 +137,6 @@ class _RegisterPageState extends State<RegisterPage> {
                 ),
                 const SizedBox(height: 40),
                 SizedBox(
-                  // Quitamos el const aquí
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _register,
