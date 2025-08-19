@@ -496,4 +496,37 @@ static Future<List<dynamic>> getAllArticlesForAdmin() async {
   return _processResponse(response);
 }
 
+
+static Future<Map<String, dynamic>> createArticleCategory(String name) async {
+  final response = await _makeAuthenticatedRequest(
+    (headers) => http.post(
+      Uri.parse('$_baseUrl/articles/categories'),
+      headers: headers,
+      body: json.encode({'name': name}),
+    ),
+  );
+  return _processResponse(response);
+}
+
+static Future<Map<String, dynamic>> updateArticleCategory(int id, String name) async {
+  final response = await _makeAuthenticatedRequest(
+    (headers) => http.put(
+      Uri.parse('$_baseUrl/articles/categories/$id'),
+      headers: headers,
+      body: json.encode({'name': name}),
+    ),
+  );
+  return _processResponse(response);
+}
+
+static Future<void> deleteArticleCategory(int id) async {
+  final response = await _makeAuthenticatedRequest(
+    (headers) => http.delete(
+      Uri.parse('$_baseUrl/articles/categories/$id'),
+      headers: headers,
+    ),
+  );
+  _processResponse(response); // Llama para manejar errores, pero ignora el resultado
+}
+
 }

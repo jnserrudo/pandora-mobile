@@ -207,10 +207,17 @@ class _EditArticlePageState extends State<EditArticlePage> {
               FutureBuilder<List<dynamic>>(
                 future: _categoriesFuture,
                 builder: (context, snapshot) {
+                  // --- LA ÚNICA CORRECCIÓN ESTÁ AQUÍ ---
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 24.0),
-                      child: Center(child: CircularProgressIndicator()),
+                    return Container(
+                      // Usamos un contenedor para reservar el espacio
+                      height: 60,
+                      alignment: Alignment.center,
+                      child: const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 3),
+                      ),
                     );
                   }
                   if (snapshot.hasError ||

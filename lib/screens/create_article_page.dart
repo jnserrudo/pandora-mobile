@@ -22,14 +22,12 @@ class _CreateArticlePageState extends State<CreateArticlePage> {
   bool _isUploading = false;
   bool _isSaving = false;
 
-  // --- ESTADO PARA CATEGORÍAS ---
   late Future<List<dynamic>> _categoriesFuture;
   int? _selectedCategoryId;
 
   @override
   void initState() {
     super.initState();
-    // Cargamos las categorías cuando la página se inicia
     _categoriesFuture = ApiService.getArticleCategories();
   }
 
@@ -65,13 +63,13 @@ class _CreateArticlePageState extends State<CreateArticlePage> {
       );
       return;
     }
-    // --- VALIDACIÓN DE CATEGORÍA ---
     if (_selectedCategoryId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Por favor, selecciona una categoría.')),
       );
       return;
     }
+
     setState(() => _isSaving = true);
     try {
       final articleData = {
@@ -81,7 +79,7 @@ class _CreateArticlePageState extends State<CreateArticlePage> {
         "authorName": _authorNameController.text,
         "coverImage": _coverImageUrl,
         "categoryId": _selectedCategoryId,
-        "status": "PUBLISHED", // O tener un selector DRAFT/PUBLISHED
+        "status": "PUBLISHED",
       };
 
       await ApiService.createArticle(articleData);
@@ -93,7 +91,7 @@ class _CreateArticlePageState extends State<CreateArticlePage> {
             backgroundColor: Colors.green,
           ),
         );
-        Navigator.of(context).pop(true); // Devolver true para refrescar
+        Navigator.of(context).pop(true);
       }
     } catch (e) {
       if (mounted)
@@ -193,14 +191,30 @@ class _CreateArticlePageState extends State<CreateArticlePage> {
                 ),
                 validator: (v) => v!.isEmpty ? 'Requerido' : null,
               ),
-              // --- DROPDOWN DINÁMICO PARA CATEGORÍAS ---
+
+              const SizedBox(
+                height: 20,
+              ), // <-- 1. AÑADIDO: Espacio antes del dropdown
+
               FutureBuilder<List<dynamic>>(
                 future: _categoriesFuture,
                 builder: (context, snapshot) {
+                  // Mientras carga, mostramos un contenedor con una altura fija para no "mover" el layout
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
+                    return Container(
+                      // <-- 2. CAMBIO: Contenedor con altura fija
+                      height: 60, // Altura estándar de un TextFormField
+                      alignment: Alignment.center,
+                      child: const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 3),
+                      ),
+                    );
                   }
-                  if (snapshot.hasError || !snapshot.hasData) {
+                  if (snapshot.hasError ||
+                      !snapshot.hasData ||
+                      snapshot.data!.isEmpty) {
                     return const Text('No se pudieron cargar las categorías.');
                   }
                   final categories = snapshot.data!;
@@ -222,6 +236,7 @@ class _CreateArticlePageState extends State<CreateArticlePage> {
                   );
                 },
               ),
+
               const SizedBox(height: 40),
               SizedBox(
                 width: double.infinity,

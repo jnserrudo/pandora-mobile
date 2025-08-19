@@ -5,6 +5,8 @@ import 'package:pandora_app/services/api_service.dart';
 import 'package:pandora_app/screens/create_article_page.dart';
 import 'package:pandora_app/screens/edit_article_page.dart';
 // ... (imports de widgets de error, etc.)
+import 'package:pandora_app/screens/manage_article_categories_page.dart';
+
 
 class ManageArticlesPage extends StatefulWidget {
   const ManageArticlesPage({super.key});
@@ -16,6 +18,9 @@ class ManageArticlesPage extends StatefulWidget {
 class _ManageArticlesPageState extends State<ManageArticlesPage> {
   late Future<List<dynamic>> _articlesFuture;
 
+final Map<String, String> _articleStatusTranslations = {
+    'DRAFT': 'Borrador', 'PUBLISHED': 'Publicado',
+  };
   @override
   void initState() {
     super.initState();
@@ -32,7 +37,22 @@ class _ManageArticlesPageState extends State<ManageArticlesPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Gestionar Noticias')),
+      appBar: AppBar(
+        title: const Text('Gestionar Noticias'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.category),
+            tooltip: 'Gestionar Categorías',
+            onPressed: () async {
+              // Navegamos a la nueva página y esperamos a que vuelva.
+              // No necesitamos un resultado, pero al volver, recargamos
+              // los artículos por si una categoría cambió.
+              await Navigator.push(context, MaterialPageRoute(builder: (context) => const ManageArticleCategoriesPage()));
+              _loadAllArticles();
+            },
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           final result = await Navigator.push<bool>(
@@ -71,7 +91,7 @@ class _ManageArticlesPageState extends State<ManageArticlesPage> {
                   fit: BoxFit.cover,
                 ),
                 title: Text(article['title']),
-                subtitle: Text('Estado: ${article['status']}'),
+                subtitle: Text('Estado: ${_articleStatusTranslations[article['status']] ?? article['status']}'),
                 trailing: const Icon(Icons.edit),
                 onTap: () async {
                   // --- LÓGICA DE EDICIÓN MEJORADA ---
