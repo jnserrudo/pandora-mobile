@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:pandora_app/screens/articles_list_page.dart';
 import 'package:provider/provider.dart';
 import 'package:pandora_app/services/auth_services.dart';
 import 'package:pandora_app/widgets/animated_background.dart'; // Importamos el fondo
@@ -136,7 +137,7 @@ class HomePage extends StatelessWidget {
             mainAxisSpacing: 16,
             crossAxisSpacing: 16,
             childAspectRatio: 1.0,
-             children: [
+            children: [
               _buildNavigableCategory(
                 context,
                 title: 'Vida\nNocturna',
@@ -186,6 +187,92 @@ class HomePage extends StatelessWidget {
               ),
             ),
           ),
+
+          // --- NUEVO CARD PARA MAGAZINE / NOTICIAS ---
+          const SizedBox(height: 30),
+
+          Card(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(15),
+            ),
+            clipBehavior: Clip.antiAlias,
+            color: Colors
+                .transparent, // Hacemos la tarjeta transparente para ver el gradiente
+            child: InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ArticlesListPage(),
+                  ),
+                );
+              },
+              // Contenedor exterior que crea el borde con gradiente
+              child: Container(
+                padding: const EdgeInsets.all(
+                  2.0,
+                ), // Este es el grosor del borde
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(15),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFff00c8), Color(0xFFc738dd)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                // Contenedor interior que tiene el color de fondo oscuro
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 24,
+                  ),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(
+                      13,
+                    ), // Un radio ligeramente menor
+                    color: const Color(
+                      0xFF1E1E2C,
+                    ), // Un color oscuro, puedes ajustarlo
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.article_outlined,
+                        color: Colors.white,
+                        size: 40,
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Magazine',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Nuestras últimas noticias.',
+                              style: TextStyle(color: Colors.white70),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(
+                        Icons.arrow_forward_ios,
+                        color: Colors.white70,
+                        size: 16,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // --- FIN DEL NUEVO CARD ---
           // --- BOTÓN PARA IR A LA AGENDA DE EVENTOS ---
           Center(
             child: Padding(

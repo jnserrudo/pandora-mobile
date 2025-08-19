@@ -7,6 +7,7 @@ import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 
 import 'package:pandora_app/widgets/empty_state_display.dart';
 import 'package:flutter/services.dart';
+
 // --- 2. WIDGET STATEFUL ---
 // La estructura del StatefulWidget se mantiene como la tenías.
 class CommerceListPage extends StatefulWidget {
@@ -35,7 +36,7 @@ class _CommerceListPageState extends State<CommerceListPage> {
     });
   }
 
-   // --- FUNCIÓN HELPER PARA OBTENER EL NOMBRE DE PANTALLA ---
+  // --- FUNCIÓN HELPER PARA OBTENER EL NOMBRE DE PANTALLA ---
   String _getCategoryDisplayName(String categoryKey) {
     switch (categoryKey) {
       case 'VIDA_NOCTURNA':
@@ -54,9 +55,7 @@ class _CommerceListPageState extends State<CommerceListPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_getCategoryDisplayName(widget.category)),
-      ),
+      appBar: AppBar(title: Text(_getCategoryDisplayName(widget.category))),
       // --- 6. USO DE FutureBuilder ---
       body: FutureBuilder<List<dynamic>>(
         future: _commercesFuture,
@@ -94,28 +93,49 @@ class _CommerceListPageState extends State<CommerceListPage> {
                 padding: const EdgeInsets.all(16),
                 itemCount: commerces.length,
                 itemBuilder: (context, index) {
+                  // --- 1. PRIMERO DEFINIMOS EL COMERCIO ACTUAL ---
                   final commerce = commerces[index];
+
+                  // --- 2. AHORA, CON 'commerce' DEFINIDO, EXTRAEMOS LA INFORMACIÓN ---
+
+                  // Obtenemos la galería de imágenes y nos aseguramos de que sea una lista.
+                  final gallery = commerce['galleryImages'];
+                  final List<String> galleryImages = (gallery is List)
+                      ? List<String>.from(gallery)
+                      : [];
+
+                  // Determinamos la URL de la imagen a mostrar de forma segura.
+                  // Primero intentamos usar 'coverImage', luego la primera de la galería, y finalmente el placeholder.
+                  final String imageUrlToShow =
+                      commerce['coverImage'] ??
+                      (galleryImages.isNotEmpty
+                          ? galleryImages.first
+                          : 'https://picsum.photos/800/200');
+
+                  // --- FIN DE LA LÓGICA ---
+
                   // Cada item de la lista se envuelve en una configuración de animación.
                   return AnimationConfiguration.staggeredList(
                     position: index, // La posición del item en la lista
-                    duration: const Duration(milliseconds: 400), // Duración de la animación
-                    child: SlideAnimation( // Animación de deslizamiento
+                    duration: const Duration(milliseconds: 400),
+                    child: SlideAnimation(
                       verticalOffset: 50.0,
-                      child: FadeInAnimation( // Animación de aparición (fade-in)
-                        // Aquí va la tarjeta que ya tenías, ahora animada
+                      child: FadeInAnimation(
                         child: Card(
                           margin: const EdgeInsets.only(bottom: 16),
                           color: Colors.white.withOpacity(0.05),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15),
+                          ),
                           clipBehavior: Clip.antiAlias,
                           child: InkWell(
                             onTap: () {
-                              HapticFeedback.mediumImpact(); // <-- AÑADE ESTA LÍNEA
-
+                              HapticFeedback.mediumImpact();
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => CommerceDetailPage(commerce: commerce),
+                                  builder: (context) =>
+                                      CommerceDetailPage(commerce: commerce),
                                 ),
                               );
                             },
@@ -124,22 +144,46 @@ class _CommerceListPageState extends State<CommerceListPage> {
                               children: [
                                 FadeInImage.assetNetwork(
                                   placeholder: 'assets/images/placeholder.png',
-                                  image: commerce['galleryImages'][0] ?? 'https://picsum.photos/800/200',
+                                  image:
+                                      imageUrlToShow, // Usamos la variable segura
                                   height: 120,
                                   width: double.infinity,
                                   fit: BoxFit.cover,
-                                  imageErrorBuilder: (context, error, stackTrace) {
-                                    return Container(height: 120, color: Colors.grey[800], child: const Icon(Icons.broken_image, color: Colors.grey));
-                                  },
+                                  imageErrorBuilder:
+                                      (context, error, stackTrace) {
+                                        return Container(
+                                          height: 120,
+                                          color: Colors.grey[800],
+                                          child: const Icon(
+                                            Icons.broken_image,
+                                            color: Colors.grey,
+                                          ),
+                                        );
+                                      },
                                 ),
                                 Padding(
                                   padding: const EdgeInsets.all(16),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      Text(commerce['name'], style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                                      Text(
+                                        commerce['name'],
+                                        style: const TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                        ),
+                                      ),
                                       const SizedBox(height: 8),
-                                      Text(commerce['description'], maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white.withOpacity(0.8))),
+                                      Text(
+                                        commerce['description'],
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: Colors.white.withOpacity(0.8),
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 ),

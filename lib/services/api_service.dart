@@ -451,4 +451,49 @@ static Future<String> uploadImage(XFile imageFile) async {
   return responseData['imageUrl'];
 }
 
+
+
+
+
+// --- MÉTODOS PARA ARTÍCULOS (PROTEGIDOS) ---
+
+/// Crea un nuevo artículo. Requiere autenticación de admin.
+static Future<Map<String, dynamic>> createArticle(Map<String, dynamic> data) async {
+  final response = await _makeAuthenticatedRequest(
+    (headers) => http.post(
+      Uri.parse('$_baseUrl/articles'),
+      headers: headers,
+      body: json.encode(data),
+    ),
+  );
+  return _processResponse(response);
+}
+
+/// Actualiza un artículo existente por su ID. Requiere autenticación de admin.
+static Future<Map<String, dynamic>> updateArticle(int id, Map<String, dynamic> data) async {
+  final response = await _makeAuthenticatedRequest(
+    (headers) => http.put(
+      Uri.parse('$_baseUrl/articles/$id'),
+      headers: headers,
+      body: json.encode(data),
+    ),
+  );
+  return _processResponse(response);
+}
+
+
+// --- MÉTODOS PARA ARTÍCULOS (PÚBLICOS) ---
+static Future<List<dynamic>> getArticleCategories() async {
+  final response = await http.get(Uri.parse('$_baseUrl/articles/categories'));
+  return _processResponse(response);
+}
+
+// --- MÉTODOS PARA ARTÍCULOS (ADMIN) ---
+static Future<List<dynamic>> getAllArticlesForAdmin() async {
+  final response = await _makeAuthenticatedRequest(
+    (headers) => http.get(Uri.parse('$_baseUrl/articles/manage/all'), headers: headers),
+  );
+  return _processResponse(response);
+}
+
 }
