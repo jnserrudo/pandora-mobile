@@ -4,6 +4,7 @@ import 'package:pandora_app/screens/event_detail_page.dart';
 import 'package:pandora_app/services/api_service.dart';
 import 'package:pandora_app/widgets/error_display.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+import 'package:pandora_app/screens/article_detail_page.dart'; // <-- 1. IMPORTAR
 
 class SearchResultsPage extends StatefulWidget {
   final String query;
@@ -29,12 +30,63 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
     });
   }
 
+  // --- 2. FUNCIÓN HELPER PARA LA UI ---
+  // Creamos un helper para no repetir código en el itemBuilder
+  Widget _buildResultTile(Map<String, dynamic> result) {
+    final String type = result['type'];
+
+    // Valores por defecto
+    IconData icon = Icons.help_outline;
+    String title = result['name'] ?? result['title'] ?? 'Sin título';
+    String subtitle = type.replaceFirst(
+      type[0],
+      type[0].toUpperCase(),
+    ); // "commerce" -> "Commerce"
+    VoidCallback? onTap;
+
+    if (type == 'commerce') {
+      icon = Icons.store;
+      subtitle = 'Comercio';
+      onTap = () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => CommerceDetailPage(commerce: result),
+        ),
+      );
+    } else if (type == 'event') {
+      icon = Icons.event;
+      subtitle = 'Evento';
+      onTap = () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => EventDetailPage(event: result)),
+      );
+    } else if (type == 'article') {
+      icon = Icons.article;
+      subtitle = 'Noticia / Magazine';
+      onTap = () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ArticleDetailPage(articleSlug: result['slug']),
+        ),
+      );
+    }
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: ListTile(
+        leading: Icon(icon, color: const Color(0xFFc738dd), size: 30),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: Text(subtitle),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+        onTap: onTap,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Resultados para "${widget.query}"'),
-      ),
+      appBar: AppBar(title: Text('Resultados para "${widget.query}"')),
       body: FutureBuilder<List<dynamic>>(
         future: _searchResultsFuture,
         builder: (context, snapshot) {
@@ -46,17 +98,19 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
               onRetry: _performSearch, // Conectamos el reintento
             );
           } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text('No se encontraron resultados para tu búsqueda.'));
+            return const Center(
+              child: Text('No se encontraron resultados para tu búsqueda.'),
+            );
           } else {
             final allResults = snapshot.data!;
-            
+
             return AnimationLimiter(
               child: ListView.builder(
                 padding: const EdgeInsets.all(16),
                 itemCount: allResults.length,
                 itemBuilder: (context, index) {
                   final result = allResults[index];
-                  
+
                   // Determinamos el tipo de resultado basándonos en el campo 'type' del backend
                   final bool isCommerce = result['type'] == 'commerce';
 
@@ -66,37 +120,9 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
                     child: SlideAnimation(
                       verticalOffset: 50.0,
                       child: FadeInAnimation(
-                        // --- AQUÍ REINSERTAMOS EL LISTTILE COMPLETO ---
-                        child: Card(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          color: Colors.white.withOpacity(0.05),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          clipBehavior: Clip.antiAlias,
-                          child: ListTile(
-                            leading: Icon(
-                              isCommerce ? Icons.store : Icons.event,
-                              color: const Color(0xFFc738dd),
-                              size: 30,
-                            ),
-                            title: Text(result['name'] ?? 'Sin nombre', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                            subtitle: Text(isCommerce ? 'Comercio' : 'Evento', style: TextStyle(color: Colors.white.withOpacity(0.7))),
-                            // --- ¡Y AQUÍ ESTÁ EL ONTAP! ---
-                            onTap: () {
-                              if (isCommerce) {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(builder: (context) => CommerceDetailPage(commerce: result)),
-                                );
-                              } else {
-                                // Navegamos a la página de detalle del evento
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(builder: (context) => EventDetailPage(event: result)),
-                                );
-                              }
-                            },
-                          ),
-                        ),
+                        // --- 3. USAMOS NUESTRO HELPER ---
+                        // La UI se genera de forma limpia y dinámica
+                        child: _buildResultTile(result),
                       ),
                     ),
                   );

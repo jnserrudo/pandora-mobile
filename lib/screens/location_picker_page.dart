@@ -1,10 +1,13 @@
+// lib/screens/location_picker_page.dart
+
+import 'dart:async'; // Necesario para TimeoutException
+import 'dart:convert';
+import 'dart:io'; // Necesario para SocketException
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:geocoding/geocoding.dart';
-import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:latlong2/latlong.dart';
 
 class LocationPickerPage extends StatefulWidget {
   const LocationPickerPage({super.key});
@@ -14,7 +17,10 @@ class LocationPickerPage extends StatefulWidget {
 }
 
 class _LocationPickerPageState extends State<LocationPickerPage> {
-  static final LatLng _initialPosition = LatLng(-26.8315, -65.2073);
+  static final LatLng _initialPosition = LatLng(
+    -24.7859,
+    -65.4117,
+  ); // Salta, Argentina
 
   final MapController _mapController = MapController();
   LatLng _selectedLocation = _initialPosition;
@@ -33,14 +39,11 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
     super.dispose();
   }
 
+  // --- FUNCIÓN DE PERMISOS Y UBICACIÓN (MEJORADA) ---
   Future<void> _getCurrentLocationAndCenterMap() async {
-    print("[LocationPicker] Intentando obtener la ubicación actual...");
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        print(
-          "[LocationPicker] Error: Los servicios de ubicación están desactivados.",
-        );
+      if (!serviceEnabled && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Por favor, activa los servicios de ubicación.'),
@@ -50,41 +53,64 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
       }
 
       LocationPermission permission = await Geolocator.checkPermission();
-      print("[LocationPicker] Permiso de ubicación actual: $permission");
+
       if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          print("[LocationPicker] Error: El usuario denegó los permisos.");
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Se necesitan permisos de ubicación para centrar el mapa.',
+        // Mostramos nuestro propio diálogo explicando por qué necesitamos el permiso
+        if (mounted) {
+          final bool? userAgreed = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Permiso de Ubicación'),
+              content: const Text(
+                'Pandora necesita tu ubicación para centrar el mapa. ¿Deseas permitirlo?',
               ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Ahora no'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('Permitir'),
+                ),
+              ],
             ),
           );
-          return;
+
+          if (userAgreed != true) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Permiso no solicitado.')),
+            );
+            return;
+          }
         }
+
+        // Solo si el usuario aceptó, pedimos el permiso del sistema
+        permission = await Geolocator.requestPermission();
       }
-      if (permission == LocationPermission.deniedForever) {
-        print("[LocationPicker] Error: Permisos denegados permanentemente.");
+
+      if (permission == LocationPermission.denied && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Los permisos de ubicación fueron denegados permanentemente.',
-            ),
-          ),
+          const SnackBar(content: Text('Permiso de ubicación denegado.')),
         );
         return;
       }
 
-      print("[LocationPicker] Obteniendo posición...");
+      if (permission == LocationPermission.deniedForever && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Permisos bloqueados. Por favor, actívalos en la configuración.',
+            ),
+          ),
+        );
+        await Geolocator.openAppSettings(); // Guía al usuario a la configuración de la app
+        return;
+      }
+
       final Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
-      print(
-        "[LocationPicker] Posición obtenida: ${position.latitude}, ${position.longitude}",
-      );
-
       final newLocation = LatLng(position.latitude, position.longitude);
 
       if (mounted) {
@@ -94,69 +120,58 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
       }
     } catch (e) {
       print(
-        "[LocationPicker] !!! EXCEPCIÓN en _getCurrentLocationAndCenterMap: $e",
+        "[LocationPicker] EXCEPCIÓN en _getCurrentLocationAndCenterMap: $e",
       );
-      // Si falla, al menos intenta obtener la dirección de la ubicación inicial
-      _getAddressFromLatLng(_initialPosition);
+      _getAddressFromLatLng(
+        _initialPosition,
+      ); // Intenta cargar dirección de la ubicación por defecto
     }
   }
 
+  // --- FUNCIÓN DE BÚSQUEDA DE DIRECCIÓN (MEJORADA) ---
   Future<void> _getAddressFromLatLng(LatLng position) async {
-    print(
-      "[LocationPicker] Buscando dirección para: ${position.latitude}, ${position.longitude} usando Nominatim...",
-    );
     if (!mounted) return;
     setState(() => _isLoadingAddress = true);
 
     try {
-      // Construimos la URL para la API de Nominatim
       final url = Uri.parse(
         'https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.latitude}&lon=${position.longitude}&accept-language=es',
       );
 
-      // Realizamos la petición GET
-      final response = await http.get(
-        url,
-        // Es una buena práctica incluir un User-Agent
-        headers: {'User-Agent': 'PandoraApp/1.0'},
-      );
+      final response = await http
+          .get(url, headers: {'User-Agent': 'PandoraApp/1.0'})
+          .timeout(const Duration(seconds: 10)); // Timeout de 10 segundos
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-
-        // La dirección completa está en la clave 'display_name'
         final displayName = data['display_name'];
 
         if (mounted && displayName != null) {
-          final address = displayName.toString();
-          print("[LocationPicker] Dirección encontrada: $address");
-          setState(() => _selectedAddress = address);
+          setState(() => _selectedAddress = displayName.toString());
         } else if (mounted) {
-          print(
-            "[LocationPicker] No se encontró la dirección en la respuesta de Nominatim.",
-          );
           setState(
             () => _selectedAddress = 'No se pudo encontrar la dirección.',
           );
         }
-      } else {
-        print(
-          "[LocationPicker] Error de Nominatim. Código: ${response.statusCode}",
-        );
-        if (mounted)
-          setState(
-            () => _selectedAddress = 'Error al contactar el servicio de mapas.',
-          );
+      } else if (mounted) {
+        setState(() => _selectedAddress = 'El servicio de mapas no responde.');
       }
-    } catch (e) {
-      print(
-        "[LocationPicker] !!! EXCEPCIÓN en _getAddressFromLatLng (http): $e",
-      );
-      if (mounted) {
+    } on TimeoutException {
+      if (mounted)
         setState(
-          () => _selectedAddress = 'Error de conexión. Verifica tu internet.',
+          () => _selectedAddress = 'La conexión es lenta. Intenta de nuevo.',
         );
-      }
+    } on SocketException {
+      if (mounted)
+        setState(
+          () => _selectedAddress = 'Error de red. Verifica tu internet.',
+        );
+    } catch (e) {
+      print("[LocationPicker] EXCEPCIÓN en _getAddressFromLatLng: $e");
+      if (mounted)
+        setState(
+          () => _selectedAddress = 'Ocurrió un error al buscar la dirección.',
+        );
     } finally {
       if (mounted) setState(() => _isLoadingAddress = false);
     }
@@ -173,7 +188,6 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
 
   @override
   Widget build(BuildContext context) {
-    // El resto del build no cambia...
     return Scaffold(
       appBar: AppBar(
         title: const Text('Seleccionar Ubicación'),
@@ -191,12 +205,11 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
             options: MapOptions(
               initialCenter: _initialPosition,
               initialZoom: 14.0,
-              onPositionChanged: (MapPosition pos, bool hasGesture) {
-                if (hasGesture) {
-                  if (mounted) setState(() => _selectedLocation = pos.center!);
-                }
+              onPositionChanged: (pos, hasGesture) {
+                if (hasGesture && mounted)
+                  setState(() => _selectedLocation = pos.center!);
               },
-              onMapEvent: (MapEvent event) {
+              onMapEvent: (event) {
                 if (event is MapEventMoveEnd) {
                   _getAddressFromLatLng(_selectedLocation);
                 }
@@ -206,19 +219,13 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
               TileLayer(
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName:
-                    'com.example.pandora_app', // Reemplaza con el nombre de tu paquete
-                // AÑADIMOS UN ERROR BUILDER PARA VER SI LOS TILES FALLAN
-                errorImage: const AssetImage(
-                  'assets/images/placeholder.png',
-                ), // <-- AÑADE UNA IMAGEN DE PLACEHOLDER
+                    'com.example.pandora_app', // este es el nombre del paquete, recordar "Antes de publicar tu app en la Play Store o App Store, debes cambiarlo a algo único, como com.tuempresa.pandora_app."
               ),
             ],
           ),
-
           const Center(
             child: Icon(Icons.location_pin, color: Colors.red, size: 50),
           ),
-
           Positioned(
             bottom: 0,
             left: 0,
@@ -226,7 +233,7 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
             child: Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).scaffoldBackgroundColor,
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(20),
                   topRight: Radius.circular(20),
